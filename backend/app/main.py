@@ -1,7 +1,7 @@
-
+# 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # 1. Import Middleware-nya
-from app.database import creat_db_tables
+from app.database import create_dataBase_tables
 from app.routes import user
 
 app = FastAPI()
@@ -21,7 +21,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    creat_db_tables()
+    create_dataBase_tables()
 
 # Mengenalkan pintu /users ke aplikasi utama
 app.include_router(user.router)

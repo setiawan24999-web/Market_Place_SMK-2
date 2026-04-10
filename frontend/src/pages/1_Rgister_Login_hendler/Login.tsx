@@ -24,7 +24,7 @@ const Login: React.FC = () => {
             alert("Login gagal! Periksa username dan password.");
         }
     };
-
+// baik disini kita akan mulai menguding untuk mencapai kesuyyksessanb kita 
     return (
         <div className="flex flex-col items-center p-10">
             <h1 className="text-2xl font-bold mb-5">Login Marketplace</h1>
