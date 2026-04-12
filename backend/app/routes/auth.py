@@ -1,50 +1,64 @@
-from fastapi import Depends ,status, HTTPException
+from fastapi import status, HTTPException, Depends
+from sqlmodel import Session
+from fastapi.security import OAuth2PasswordBearer
+from app.models import User
+from jose import JWTError, jwt
+from app.database import get_sesion
+from passlib.context import CryptContext
+# Radar untuk mencari token di Header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from sqlmodel import Session, select
+from ..database import get_sesion # Pastikan typo 'sesion' sesuai file kamu
+from ..models import User
 
-pwd_contex = CryptContext(schemes=["bcrypt"], deprecated="auto")
-# fungsi untuk acak dan periksa password 
-def acak_password(password: str) -> str:
-    return pwd_contex.hash(password)
-def feryfikasi_pasword(plain_passwod:str , hashead_password:str)-> str:
-    return pwd_contex.verify(plain_passwod, hashead_password)
+# Ini adalah 'radar' yang mencari tulisan "Authorization: Bearer <token>" di header
 
 
+# configurasi pengacakan password
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# router dan logika registernya
 
-# fungsi buatkan token toko
-SECRET_KEY = "Lorem, ipsum dolor sit amet consectetur adipisicing elit. Odio, consectetur praesentium. Dolor 7d9f2a1b5c8e4d3f2a1b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d expedita tempora quia magnam, perspiciatis cumque molestiae voluptatum voluptate cum quaerat dicta officia voluptatem distinctio excepturi veniam omnis?za"
-ALGORITMA_PENGACAKAN = "HS256"
-KADALUARSA = 60
-def buatkan_hak_akses(data:dict):
-    untuk_diacak = data.copy()
-    kadaluarsa = datetime.utcnow()+ timedelta(minutes=KADALUARSA)
-    untuk_diacak.update({"exp": kadaluarsa})
-    jwt_acak = jwt.encode(untuk_diacak, SECRET_KEY, ALGORITMA_PENGACAKAN)
-    return jwt_acak
+SECRET_KEY = "Lorem ipsum dolor, sit amet consectetur adipisicing elit. 56 22i2$##@@ust3o illo provident facere, quo culpa ipsa asperiores porro quam nobis qu8656545ibusdam et, commodi exercitationem, laudantium necessit$$$tit;;;;bus recu64667sandae! Similique ma78m sunt nam id!3"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_HOUR = 60
 
 
-     
-deteksi_token =  OAuth2PasswordBearer(tokenUrl="users/login")
 
-def get_current_user(token: str = Depends(deteksi_token)):
+
+# Pastikan tokenUrl mengarah ke path login yang tepat
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_sesion)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
     try:
-        # 1. Bongkar token
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITMA_PENGACAKAN])
-        username: str = payload.get("sub")
+        # 1. Decode token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
         
-        # 2. Pastikan username TIDAK boleh kosong
-        if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Kredensial tidak valid"
-            )
-        return username 
+        if email is None:
+            raise credentials_exception
+            
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="TOKEN TIDAK VALID ATAU SUDAH KADALUARSA",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Token sudah tidak berlaku atau salah"
         )
 
+    # 2. Cari user di database berdasarkan email dari token
+    statement = select(User).where(User.email == email)
+    user = db.exec(statement).first()
+
+    # 3. Validasi apakah user benar-benar ada
+    if user is None:
+        raise credentials_exception
+        
+    # 4. Kembalikan objek user (bukan string)
+    return user
